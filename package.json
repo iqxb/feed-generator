@@ -1,0 +1,14 @@
+{
+  "name": "feed-generator",
+  "version": "1.0.0",
+  "main": "feed-generator.js",
+  "scripts": {
+    "start": "node feed-generator.js"
+  },
+  "dependencies": {
+    "axios": "^1.9.0",
+    "csv-stringify": "^6.5.2",
+    "express": "^5.1.0",
+    "fast-xml-parser": "^5.2.3"
+  }
+}
