@@ -87,7 +87,9 @@ app.get('/feed/shopify/csv', async (req, res) => {
     const rows = products.map(p => {
       const v = p.variants[0] || {};
       const img = p.images[0]?.src || '';
-      const desc = (p.body_html || '').replace(/<[^>]*>?/gm, '').replace(/&/g, '&amp;');
+      const desc = (p.body_html || '')
+        .replace(/<[^>]*>?/gm, '')
+        .replace(/&/g, '&amp;');
 
       return {
         id: p.id,
