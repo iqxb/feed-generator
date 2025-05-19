@@ -2,7 +2,7 @@
 const axios       = require('axios');
 const { XMLBuilder } = require('fast-xml-parser');
 
-/**
+/** 
  * Fetch *all* live products from a Shopify collection
  * (defaults to the “all” collection, paginated 250 at a time)
  */
@@ -23,7 +23,7 @@ async function fetchAllProducts(shop, collection = 'all') {
 }
 
 /**
- * TikTok-style XML feed
+ * TikTok‐style XML feed
  * GET /api/feed/shopify/xml/tiktok?shop=<store>&brand=<brand>&collection=<handle>
  */
 module.exports = async (req, res) => {
@@ -36,35 +36,36 @@ module.exports = async (req, res) => {
   try {
     const products = await fetchAllProducts(shop, collection);
 
-    // Build each <item> with the Google Shopping namespace
+    // build each <item>
     const items = products.map(p => {
-      const v            = p.variants[0] || {};
-      const price        = v.price || '0.00';
-      const availability = v.available ? 'in stock' : 'out of stock';
-      const link         = `${shop}/products/${p.handle}`;
-      const image_link   = p.images[0]?.src || '';
+      const v    = p.variants[0] || {};
+      const raw  = v.available;
+      // normalize to one of TikTok's five allowed values:
+      const availability = raw
+        ? 'in stock'
+        : 'out of stock';
+
       return {
-        'g:id':           p.id,
-        'g:title':        p.title,
-        'g:description':  (p.body_html || '').replace(/<[^>]*>?/gm, ''),
-        'g:availability': availability,
-        'g:condition':    'new',
-        'g:price':        `${price} ${v.currency || ''}`.trim(),
-        'g:link':         link,
-        'g:image_link':   image_link,
-        'g:brand':        brand
+        id:           p.id,
+        title:        p.title,
+        description:  (p.body_html || '').replace(/<[^>]*>?/gm, ''),
+        link:         `${shop}/products/${p.handle}`,
+        image_link:   p.images[0]?.src || '',
+        availability,           // now plain <availability>
+        condition:    'new',
+        price:        `${v.price || '0.00'} ${v.currency || ''}`.trim(),
+        brand
       };
     });
 
-    // Add the required <title>, <link> & <description> at the channel
+    // wrap in an RSS envelope
     const feedObj = {
       rss: {
-        '@_xmlns:g': 'http://base.google.com/ns/1.0',
         '@_version': '2.0',
         channel: {
           title:       `TikTok feed for ${brand}`,
           link:        shop,
-          description: `A TikTok–style product feed for ${brand}`,
+          description: `A TikTok‐style product feed for ${brand}`,
           item:        items
         }
       }
