@@ -23,22 +23,22 @@ module.exports = async (req, res) => {
     const items = products.map(p => {
       const v = p.variants[0] || {};
       return {
-        'g:id':      p.id,
-        'g:title':   p.title,
-        'g:description': (p.body_html || '').replace(/<[^>]*>?/gm, ''),
+        'g:id':           p.id,
+        'g:title':        p.title,
+        'g:description':  (p.body_html || '').replace(/<[^>]*>?/gm, ''),
         'g:availability': v.available ? 'in stock' : 'out of stock',
-        'g:condition':   'new',
-        'g:price':       `${v.price || '0.00'} ${v.currency||''}`.trim(),
-        'g:link':        `${shop}/products/${p.handle}`,
-        'g:image_link':  p.images[0]?.src || '',
-        'g:brand':       brand
+        'g:condition':    'new',
+        'g:price':        `${v.price || '0.00'} ${v.currency||''}`.trim(),
+        'g:link':         `${shop}/products/${p.handle}`,
+        'g:image_link':   p.images[0]?.src || '',
+        'g:brand':        brand
       };
     });
 
     const feedObj = {
       rss: {
-        '@_xmlns:g': 'http://base.google.com/ns/1.0',
-        '@_version': '2.0',
+        '@_xmlns:g':  'http://base.google.com/ns/1.0',
+        '@_version':  '2.0',
         channel: {
           title:       `TikTok feed for ${brand}`,
           link:        shop,
@@ -48,16 +48,18 @@ module.exports = async (req, res) => {
       }
     };
 
-    // include an XML declaration at top:
-    const xml = new XMLBuilder({
+    // ← Make sure `declaration` is here!
+    const builder = new XMLBuilder({
       ignoreAttributes: false,
       format: true,
       declaration: {
-        include: true,
+        include:  true,
         encoding: 'UTF-8',
         version:  '1.0'
       }
-    }).build(feedObj);
+    });
+
+    const xml = builder.build(feedObj);
 
     res.setHeader('Content-Type', 'application/xml; charset=UTF-8');
     res.send(xml);
