@@ -36,23 +36,27 @@ module.exports = async (req, res) => {
       };
     });
 
+    // Build the RSS feed with XML declaration
     const feedObj = {
       rss: {
-        '@_xmlns:g': 'http://base.google.com/ns/1.0',
-        '@_version': '2.0',
+        '@_xmlns:g':   'http://base.google.com/ns/1.0',
+        '@_version':   '2.0',
         channel: {
           title:       `TikTok feed for ${brand}`,
           link:        shop,
-          description: `A TikTok-style product feed for ${brand}`,
+          description: `A TikTok-compatible product feed for ${brand}`,
           item:        items
         }
       }
     };
 
-    // Build and send
-    const xml = new XMLBuilder({ ignoreAttributes:false, format:true, declaration: { include:true, encoding:'UTF-8', version:'1.0' } })
-                  .build(feedObj);
-    res.setHeader('Content-Type','application/xml; charset=utf-8');
+    const xml = new XMLBuilder({
+      ignoreAttributes: false,
+      format: true,
+      declaration: { include: true, encoding: 'UTF-8', version: '1.0' }
+    }).build(feedObj);
+
+    res.setHeader('Content-Type', 'application/xml; charset=UTF-8');
     res.send(xml);
 
   } catch (err) {
