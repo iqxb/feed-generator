@@ -1,5 +1,5 @@
 // api/feed/shopify/xml/tiktok.js
-const axios      = require('axios');
+const axios         = require('axios');
 const { XMLBuilder } = require('fast-xml-parser');
 
 /** Fetch all products (paginated) */
@@ -37,20 +37,24 @@ module.exports = async (req, res) => {
       const desc         = (p.body_html || '').replace(/<[^>]*>?/gm,'').trim();
 
       return {
-        'g:id'          : p.id,
-        'g:title'       : p.title,
-        'g:description' : desc,
-        'g:link'        : link,
-        'g:image_link'  : image_link,
-        'g:price'       : `${price} ${v.currency||''}`.trim(),
-        'g:availability': availability,
-        'g:condition'   : 'new',
-        'g:brand'       : brand
+        'g:id'           : p.id,
+        'g:title'        : p.title,
+        'g:description'  : desc,
+        'g:link'         : link,
+        'g:image_link'   : image_link,
+        'g:price'        : `${price} ${v.currency||''}`.trim(),
+        'g:availability' : availability,
+        'g:condition'    : 'new',
+        'g:brand'        : brand,
+
+        // ← NEW: Shopify’s product_type
+        'g:product_type' : p.product_type || ''
+        // ← OR hard-code a Google category instead:
+        // 'g:google_product_category': 'Apparel & Accessories > Clothing > Shirts',
       };
     });
 
-    // 1) Add the XML declaration manually  
-    // 2) Include channel metadata (title, link, description)  
+    // Build RSS envelope
     const feedObj = {
       rss: {
         '@_xmlns:g'  : 'http://base.google.com/ns/1.0',
@@ -64,17 +68,13 @@ module.exports = async (req, res) => {
       }
     };
 
-    const builder = new XMLBuilder({
-      ignoreAttributes: false,
-      format          : true
-    });
+    // Generate XML
+    const builder = new XMLBuilder({ ignoreAttributes: false, format: true });
     const xmlBody = builder.build(feedObj);
-
-    // Prepend XML declaration
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n` + xmlBody;
+    const xml     = `<?xml version="1.0" encoding="UTF-8"?>\n` + xmlBody;
 
     res.setHeader('Content-Type','application/xml');
-    res.status(200).send(xml);
+    res.send(xml);
 
   } catch (err) {
     console.error(err);
