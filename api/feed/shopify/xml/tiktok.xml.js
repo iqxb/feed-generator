@@ -16,7 +16,7 @@ async function fetchAllProducts(shop, collection = 'all') {
 }
 
 /**
- * GET /api/feed/shopify/xml/tiktok?shop=<url>&brand=<brand>&collection=<handle>
+ * GET /api/feed/shopify/xml/tiktok.xml?shop=<url>&brand=<brand>&collection=<handle>
  */
 module.exports = async (req, res) => {
   const { shop, brand = 'Unknown', collection = 'all' } = req.query;
@@ -26,51 +26,48 @@ module.exports = async (req, res) => {
 
   try {
     const products = await fetchAllProducts(shop, collection);
-
-    // Build each <item>
     const items = products.map(p => {
       const v            = p.variants[0] || {};
       const price        = v.price || '0.00';
       const availability = v.available ? 'in stock' : 'out of stock';
       const link         = `${shop}/products/${p.handle}`;
       const image_link   = p.images[0]?.src || '';
-      const desc         = (p.body_html || '').replace(/<[^>]*>?/gm,'').trim();
+      const desc         = (p.body_html||'').replace(/<[^>]*>?/gm,'').trim();
+      // take whichever category you want; fall back to empty string
+      const shopifyType  = p.product_type || '';
+      const googleCat    = p.product_type || ''; 
 
       return {
-        'g:id'           : p.id,
-        'g:title'        : p.title,
-        'g:description'  : desc,
-        'g:link'         : link,
-        'g:image_link'   : image_link,
-        'g:price'        : `${price} ${v.currency||''}`.trim(),
-        'g:availability' : availability,
-        'g:condition'    : 'new',
-        'g:brand'        : brand,
-
-        // ← NEW: Shopify’s product_type
-        'g:product_type' : p.product_type || ''
-        // ← OR hard-code a Google category instead:
-        // 'g:google_product_category': 'Apparel & Accessories > Clothing > Shirts',
+        'g:id'                         : p.id,
+        'g:title'                      : p.title,
+        'g:description'                : desc,
+        'g:link'                       : link,
+        'g:image_link'                 : image_link,
+        'g:price'                      : `${price} ${v.currency||''}`.trim(),
+        'g:availability'               : availability,
+        'g:condition'                  : 'new',
+        'g:brand'                      : brand,
+        // Shopify’s own product_type
+        'g:product_type'               : shopifyType,
+        // Google/TikTok recommendation
+        'g:google_product_category'    : googleCat
       };
     });
 
-    // Build RSS envelope
     const feedObj = {
       rss: {
-        '@_xmlns:g'  : 'http://base.google.com/ns/1.0',
-        '@_version'  : '2.0',
+        '@_xmlns:g':   'http://base.google.com/ns/1.0',
+        '@_version':   '2.0',
         channel: {
-          title      : `TikTok feed for ${brand}`,
-          link       : shop,
+          title:       `TikTok feed for ${brand}`,
+          link:        shop,
           description: `A TikTok-style product feed for ${brand}`,
-          item       : items
+          item:        items
         }
       }
     };
 
-    // Generate XML
-    const builder = new XMLBuilder({ ignoreAttributes: false, format: true });
-    const xmlBody = builder.build(feedObj);
+    const xmlBody = new XMLBuilder({ ignoreAttributes:false, format:true }).build(feedObj);
     const xml     = `<?xml version="1.0" encoding="UTF-8"?>\n` + xmlBody;
 
     res.setHeader('Content-Type','application/xml');
