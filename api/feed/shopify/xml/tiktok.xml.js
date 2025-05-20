@@ -1,12 +1,13 @@
-// api/feed/shopify/xml/tiktok.xml.js
-const axios = require('axios');
+// api/feed/shopify/xml/tiktok.js
+const axios      = require('axios');
 const { XMLBuilder } = require('fast-xml-parser');
 
+/** Fetch all products (paginated) */
 async function fetchAllProducts(shop, collection = 'all') {
-  let all = [], page = 1, batch;
+  let all = [], page = 1, batch = [];
   do {
     const url = `${shop}/collections/${collection}/products.json`;
-    const res = await axios.get(url, { params: { limit: 250, page } });
+    const res = await axios.get(url, { params:{ limit:250, page } });
     batch = res.data.products;
     all.push(...batch);
     page++;
@@ -14,52 +15,66 @@ async function fetchAllProducts(shop, collection = 'all') {
   return all;
 }
 
+/**
+ * GET /api/feed/shopify/xml/tiktok?shop=<url>&brand=<brand>&collection=<handle>
+ */
 module.exports = async (req, res) => {
   const { shop, brand = 'Unknown', collection = 'all' } = req.query;
-  if (!shop) return res.status(400).send('Missing ?shop=');
+  if (!shop) {
+    return res.status(400).send('Missing ?shop=');
+  }
 
   try {
     const products = await fetchAllProducts(shop, collection);
+
+    // Build each <item>
     const items = products.map(p => {
-      const v = p.variants[0] || {};
+      const v            = p.variants[0] || {};
+      const price        = v.price || '0.00';
+      const availability = v.available ? 'in stock' : 'out of stock';
+      const link         = `${shop}/products/${p.handle}`;
+      const image_link   = p.images[0]?.src || '';
+      const desc         = (p.body_html || '').replace(/<[^>]*>?/gm,'').trim();
+
       return {
-        'g:id': p.id,
-        'g:title': p.title,
-        'g:description': (p.body_html||'').replace(/<[^>]*>?/gm, ''),
-        'g:availability': v.available ? 'in stock' : 'out of stock',
-        'g:condition': 'new',
-        'g:price': `${v.price||'0.00'} ${v.currency||''}`.trim(),
-        'g:link': `${shop}/products/${p.handle}`,
-        'g:image_link': p.images[0]?.src||'',
-        'g:brand': brand
+        'g:id'          : p.id,
+        'g:title'       : p.title,
+        'g:description' : desc,
+        'g:link'        : link,
+        'g:image_link'  : image_link,
+        'g:price'       : `${price} ${v.currency||''}`.trim(),
+        'g:availability': availability,
+        'g:condition'   : 'new',
+        'g:brand'       : brand
       };
     });
 
+    // 1) Add the XML declaration manually  
+    // 2) Include channel metadata (title, link, description)  
     const feedObj = {
       rss: {
-        '@_xmlns:g': 'http://base.google.com/ns/1.0',
-        '@_version': '2.0',
+        '@_xmlns:g'  : 'http://base.google.com/ns/1.0',
+        '@_version'  : '2.0',
         channel: {
-          title: `TikTok feed for ${brand}`,
-          link: shop,
-          description: `A TikTok-compatible product feed for ${brand}`,
-          item: items
+          title      : `TikTok feed for ${brand}`,
+          link       : shop,
+          description: `A TikTok-style product feed for ${brand}`,
+          item       : items
         }
       }
     };
 
-    const xml = new XMLBuilder({
+    const builder = new XMLBuilder({
       ignoreAttributes: false,
-      format: true,
-      declaration: {
-        include: true,
-        encoding: 'UTF-8',
-        version: '1.0'
-      }
-    }).build(feedObj);
+      format          : true
+    });
+    const xmlBody = builder.build(feedObj);
 
-    res.setHeader('Content-Type', 'application/xml; charset=UTF-8');
-    res.send(xml);
+    // Prepend XML declaration
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n` + xmlBody;
+
+    res.setHeader('Content-Type','application/xml');
+    res.status(200).send(xml);
 
   } catch (err) {
     console.error(err);
